@@ -109,6 +109,14 @@ def test_load_failure_is_sanitized_and_can_be_retried(tmp_path, fake_runtime):
     assert engine.health().ready
 
 
+def test_loaded_voice_metadata_does_not_wait_for_inference_lock(tmp_path, fake_runtime):
+    engine = KokoroEngine(settings_for(tmp_path))
+    assert engine.list_voices()[0].id == "heart"
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        with engine._lock:
+            assert pool.submit(engine.list_voices).result(timeout=0.5)[0].id == "heart"
+
+
 @pytest.mark.parametrize("output", [np.array([]), np.array([float("nan")]), np.zeros((2, 2))])
 def test_invalid_audio_is_not_returned(tmp_path, fake_runtime, output):
     _, _, vendor = fake_runtime

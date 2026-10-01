@@ -85,9 +85,13 @@ class KokoroEngine(TTSEngine):
             raise TTSUnavailable("Kokoro could not load. Verify the model files and installed dependencies.") from None
 
     def list_voices(self) -> tuple[Voice, ...]:
-        with self._lock:
-            self._load()
-            return self._voices
+        # Once loaded, metadata is immutable and can be read without waiting
+        # for a long synthesize call holding the engine lock. This keeps new
+        # job submissions responsive while another job is generating audio.
+        if self._engine is None:
+            with self._lock:
+                self._load()
+        return self._voices
 
     def health(self) -> EngineHealth:
         try:

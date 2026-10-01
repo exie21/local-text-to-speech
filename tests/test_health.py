@@ -5,7 +5,7 @@ from httpx import ASGITransport, AsyncClient
 from app.main import app
 
 
-def test_health_does_not_require_runtime_files(monkeypatch, tmp_path):
+def test_health_does_not_require_model_or_temp_files(monkeypatch, tmp_path):
     for name in ("MODEL_DIR", "TEMP_DIR", "DATABASE_DIR"):
         monkeypatch.setenv(name, str(tmp_path / name.lower()))
 
@@ -18,4 +18,7 @@ def test_health_does_not_require_runtime_files(monkeypatch, tmp_path):
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
-    assert list(tmp_path.iterdir()) == []
+    # The job worker initializes its SQLite database at application startup.
+    assert [path.name for path in tmp_path.iterdir()] == ["database_dir"]
+    assert not (tmp_path / "model_dir").exists()
+    assert not (tmp_path / "temp_dir").exists()

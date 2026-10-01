@@ -7,8 +7,8 @@ The foundation includes a React/TypeScript frontend with Tailwind CSS,
 a FastAPI backend, portable path settings, and a working connection check.
 Local Kokoro speech generation powers both a developer command and a voice
 preview API. The browser lists installed voices and offers short WAV previews.
-The document API extracts text from TXT and PDF uploads. Full text-to-speech
-jobs are a later phase.
+The document API extracts text from TXT and PDF uploads. A SQLite job queue now
+generates ordered WAV chunks for longer text; MP3 assembly is the next phase.
 
 ## Requirements
 
@@ -18,9 +18,9 @@ jobs are a later phase.
 
 Native verification used Python 3.12.11, Node 25.8.2, and npm 11.12.1 on macOS.
 The container definitions use Python 3.12 and Node 24 Linux images, without
-forcing a CPU architecture. No models, FFmpeg, or database setup are needed
-to run the browser/API foundation. Speech generation requires the separate
-model download described below.
+forcing a CPU architecture. No FFmpeg or manual database setup is needed to run
+the API. The backend creates SQLite storage on startup. Speech generation
+requires the separate model download described below.
 
 ## Native development
 
@@ -165,11 +165,9 @@ are reused across calls; synthesis runs one call at a time with two CPU threads
 by default. Each standalone command is a new process and therefore loads its
 own engine. Callers use the `TTSEngine` abstraction, not vendor voice IDs.
 
-These are developer WAV files. Automatic expiration, MP3 output, integration
-with long-document jobs, and asynchronous jobs belong to later phases. Remove
-test WAVs when finished; the command does not yet implement the application's
-30-minute TTL. Use short passages until the document processing pipeline is
-implemented.
+These are developer WAV files. The CLI command does not implement the
+application's future 30-minute TTL; remove test WAVs when finished. The job
+system below uses the same engine to process longer text in order.
 
 The app disables ONNX Runtime telemetry before the runtime is imported, and the
 backend image also sets `ORT_DISABLE_TELEMETRY=1`. See the upstream
@@ -213,8 +211,8 @@ with `TTS_CHUNK_SIZE` or by passing `chunk_size`. Sentences that exceed the
 target wrap at word boundaries; a single word longer than the target remains
 intact. The utility rejects blank text and input longer than `MAX_TEXT_CHARS`
 (100,000 by default; configurable up to 1,000,000). The maximum applies to the
-raw input before normalization. The chunking step is not yet connected to a
-reader or generation API. Document uploads use the normalization step.
+raw input before normalization. The job API uses this chunking step; document
+uploads use the normalization step.
 
 ## Document upload API
 
@@ -244,6 +242,39 @@ The [Kokoro ONNX package](https://github.com/thewh1teagle/kokoro-onnx) is MIT
 licensed; the model is Apache 2.0 per upstream. The download script records the
 versioned source URLs and hashes of the official assets retrieved during setup;
 the release did not publish independent asset digests.
+
+## Speech jobs
+
+`POST /api/jobs` accepts JSON with `text`, a public `voice` ID, and optional
+`generation_speed` (0.5–2.0, default 1.0). The installed model must be available
+when the job is submitted. It returns HTTP 202 with a UUID and `queued` status:
+
+```sh
+curl --fail -H 'Content-Type: application/json' \
+  -d '{"text":"Hello from LocalReader.","voice":"heart"}' \
+  http://127.0.0.1:8000/api/jobs
+```
+
+Poll `GET /api/jobs/{id}` for `status`, integer `progress` (0–100),
+`current_chunk` (number of chunks finished), `total_chunks`, timestamps,
+audio duration, and a safe error when a job fails. Unknown IDs return 404.
+Blank or invalid input returns 422, over-limit text 413, and an unavailable
+model 503. Text and local file paths are absent from job responses.
+
+Jobs live in SQLite at `DATABASE_DIR/jobs.sqlite3`. Queued chunk text is retained
+locally until a job finishes or fails; it is then removed from the row. One
+worker across processes sharing the database generates chunks in order, placing
+numbered WAV files under `TEMP_DIR/jobs/{id}`. On restart, queued jobs resume;
+an interrupted active job becomes failed and its partial chunks are removed.
+Individual job failures do not stop the API or later jobs.
+
+For this phase, `completed` means all ordered WAV chunks were generated. It does
+not yet mean a playable/downloadable MP3 is available. Phase 7 will assemble
+the chunks with FFmpeg. The `assembling` and `expired` states, final audio path,
+and expiration timestamp are reserved for later phases. Until the expiration
+phase is implemented, completed WAV chunks remain in `TEMP_DIR`; remove local
+development jobs when finished. The browser reader and its polling UI also
+belong to a later phase.
 
 ## Docker development
 
@@ -275,9 +306,10 @@ The frontend container currently runs Vite for local development. Production
 frontend serving, FFmpeg, Cloudflare access, and N95
 deployment belong to later phases.
 
-Verification status: native backend tests, PDF/TXT upload extraction, frontend
-type checking/build, and browser connection/voice-list/preview-decoding checks
-pass. Compose configuration validates.
+Verification status: native backend tests, PDF/TXT upload extraction, real-model
+job generation, frontend type checking/build, and browser
+connection/voice-list/preview-decoding checks pass. Compose configuration
+validates.
 Container builds and startup are still pending because the Docker engine was
 not running during verification. The in-app browser crashed when its media Play
 control was clicked, so audible playback in that browser remains unverified.
@@ -290,11 +322,11 @@ npm --prefix frontend run build --cache "$PWD/.cache/npm"
 docker compose config --quiet
 ```
 
-The backend tests verify the health contract without runtime files and path
-configuration across launch directories, plus text normalization/chunking,
-PDF/TXT upload extraction and cleanup, TTS validation, model reuse under
-concurrent calls, safe failures, and the voice/preview API. The tests do not
-require a model download.
+The backend tests verify the health contract, path configuration across launch
+directories, text normalization/chunking, PDF/TXT upload extraction and cleanup,
+TTS validation, model reuse under concurrent calls, safe failures,
+voice/preview API, and SQLite job queue/restart behavior. The suite uses a fake
+engine for jobs and does not require a model download.
 The frontend build includes strict
 TypeScript checking. Test temporary directories and outputs are ignored by Git.
 
@@ -303,14 +335,14 @@ TypeScript checking. Test temporary directories and outputs are ignored by Git.
 ```text
 .
 ├── backend/
-│   ├── app/                 # FastAPI, settings, services/tts, and text utilities
+│   ├── app/                 # FastAPI, settings, TTS/jobs services, and text utilities
 │   ├── Dockerfile
 │   └── requirements*.txt
 ├── frontend/               # React, Vite, TypeScript, Tailwind
 ├── models/                 # Local model files (ignored)
 ├── data/
 │   ├── temp/               # Temporary runtime files (ignored)
-│   └── database/           # Future SQLite storage (ignored)
+│   └── database/           # SQLite job storage (ignored)
 ├── scripts/                # Explicit model download and native WAV generation
 ├── tests/                  # Backend checks
 ├── .env.example
@@ -320,8 +352,8 @@ TypeScript checking. Test temporary directories and outputs are ignored by Git.
 The product is named LocalReader; the containing folder can retain any name.
 Model/data directories retain only `.gitkeep` placeholders in Git. Local
 `context.txt`, `phase1.1.txt`, `phase2.1.txt`, `phase3.1.txt`, `phase4.1.txt`, and
-`phase5.1.txt` handoff notes are also ignored and must be transferred separately
-when another agent uses a different clone or worktree.
+`phase5.1.txt`, and `phase6.1.txt` handoff notes are also ignored and must be
+transferred separately when another agent uses a different clone or worktree.
 
 ## Troubleshooting
 
