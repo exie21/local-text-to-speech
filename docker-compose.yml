@@ -9,6 +9,9 @@ services:
       TEMP_DIR: /app/data/temp
       DATABASE_DIR: /app/data/database
       TTS_THREADS: ${TTS_THREADS:-2}
+      TTS_CHUNK_SIZE: ${TTS_CHUNK_SIZE:-800}
+      MAX_TEXT_CHARS: ${MAX_TEXT_CHARS:-100000}
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-10000000}
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
     volumes:

@@ -4,13 +4,11 @@ import argparse
 from pathlib import Path
 import sys
 from uuid import uuid4
-import wave
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
-import numpy as np
-
 from app.config import Settings
+from app.services.tts.audio import encode_wav
 from app.services.tts.base import TTSError
 from app.services.tts.registry import get_tts_engine
 
@@ -31,13 +29,8 @@ def main() -> None:
         parser.error("Output already exists; choose another filename")
     audio = get_tts_engine().synthesize(args.text, args.voice, args.speed)
     output.parent.mkdir(parents=True, exist_ok=True)
-    pcm = (np.clip(audio.samples, -1.0, 1.0) * 32767).astype("<i2")
     with output.open("xb") as destination:
-        with wave.open(destination, "wb") as wav:
-            wav.setnchannels(1)
-            wav.setsampwidth(2)
-            wav.setframerate(audio.sample_rate)
-            wav.writeframes(pcm.tobytes())
+        destination.write(encode_wav(audio))
     print(f"Created {output.name}: {audio.duration:.2f}s, {audio.sample_rate} Hz, mono PCM WAV")
     print("Stored in TEMP_DIR. This developer command does not yet provide automatic expiration.")
 

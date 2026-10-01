@@ -5,9 +5,10 @@ to run in Docker on a Linux Intel N95 mini PC.
 
 The foundation includes a React/TypeScript frontend with Tailwind CSS,
 a FastAPI backend, portable path settings, and a working connection check.
-Phase 2 adds local Kokoro speech generation through a developer command.
-Document uploads, a voice/audio API, and browser speech playback are not
-implemented yet; the browser currently checks the connection only.
+Local Kokoro speech generation powers both a developer command and a voice
+preview API. The browser lists installed voices and offers short WAV previews.
+The document API extracts text from TXT and PDF uploads. Full text-to-speech
+jobs are a later phase.
 
 ## Requirements
 
@@ -53,8 +54,9 @@ npm --prefix frontend run dev --cache "$PWD/.cache/npm"
 ```
 
 Open [LocalReader](http://127.0.0.1:5173). The page should show
-**Connected to your local service**. It makes a relative `/api/health` request;
-Vite forwards that request to FastAPI. No separate CORS setup is needed.
+**Connected to your local service** and list available voices after model setup.
+It makes relative `/api` requests; Vite forwards them to FastAPI. No separate
+CORS setup is needed.
 The check runs on page load and when you click **Check connection**; it times
 out after five seconds rather than polling continuously.
 
@@ -93,6 +95,9 @@ Absolute overrides are also accepted. Reading settings creates no runtime files.
 | `KOKORO_MODEL_PATH` | `MODEL_DIR/kokoro-v1.0.onnx` | Optional native model-file override; relative values use the project root. |
 | `KOKORO_VOICES_PATH` | `MODEL_DIR/voices-v1.0.bin` | Optional native voice-bank override; relative values use the project root. |
 | `TTS_THREADS` | `2` | CPU inference threads, 1–32; supplied to the container explicitly. |
+| `TTS_CHUNK_SIZE` | `800` | Text chunk target in characters, 500–1,000. |
+| `MAX_TEXT_CHARS` | `100000` | Maximum raw text length accepted by the text utility, 1–1,000,000. |
+| `MAX_UPLOAD_BYTES` | `10000000` | Maximum uploaded file size, 1–50,000,000 bytes. |
 | `API_PROXY_TARGET` | `http://127.0.0.1:8000` | Vite server only; Compose always sets `http://backend:8000`. |
 | `FRONTEND_PORT` | `5173` | Compose host port only. |
 | `BACKEND_PORT` | `8000` | Compose host port only. |
@@ -160,16 +165,80 @@ are reused across calls; synthesis runs one call at a time with two CPU threads
 by default. Each standalone command is a new process and therefore loads its
 own engine. Callers use the `TTSEngine` abstraction, not vendor voice IDs.
 
-These are developer WAV files. Automatic expiration, MP3 output, long-document
-chunking, and asynchronous jobs belong to later phases. Remove test WAVs when
-finished; the command does not yet implement the application's 30-minute TTL.
-Use short passages until the document processing pipeline is implemented.
+These are developer WAV files. Automatic expiration, MP3 output, integration
+with long-document jobs, and asynchronous jobs belong to later phases. Remove
+test WAVs when finished; the command does not yet implement the application's
+30-minute TTL. Use short passages until the document processing pipeline is
+implemented.
 
 The app disables ONNX Runtime telemetry before the runtime is imported, and the
 backend image also sets `ORT_DISABLE_TELEMETRY=1`. See the upstream
 [ONNX Runtime privacy controls](https://github.com/microsoft/onnxruntime/blob/main/docs/Privacy.md).
 Vendor logging that can include input phonemes is disabled. Error messages
 returned by the TTS abstraction omit input text and internal model paths.
+
+## Voice preview API
+
+`GET /api/voices` returns the installed voice bank's curated public IDs,
+display names, languages, and engine name in a `voices` array. The browser uses
+this response for its selector. The first request lazily loads the local model;
+if model setup is incomplete, the endpoint returns HTTP 503 with a setup hint.
+`/api/health` remains available even when the model is absent.
+
+`POST /api/voices/{voice_id}/preview` synthesizes only “Welcome to LocalReader.
+This is a preview of this voice.” It returns `audio/wav` mono PCM with
+`Cache-Control: no-store`. The API creates this audio in memory; it does not
+write a preview file or accept custom text. Invalid voices return HTTP 404,
+missing models HTTP 503, and synthesis failures HTTP 502. For example:
+
+```sh
+curl --fail -X POST http://127.0.0.1:8000/api/voices/heart/preview --output preview.wav
+```
+
+The browser exposes native audio controls for each requested preview. Changing
+voices clears the old player. The `preview.wav` file in the command above is
+written by `curl` for manual inspection and must be removed manually; browser
+previews remain in memory.
+
+## Text normalization and chunking
+
+The backend utility `app.utils.text.chunk_text()` prepares plain text for later
+synthesis. It normalizes Unicode to NFC, joins layout-wrapped lines, collapses
+extra whitespace, preserves paragraph breaks, and splits paragraphs at likely
+sentence endings. Common abbreviations, initials, and decimal numbers are kept
+together where practical. Sentence order is preserved when chunks are packed.
+
+The default target is 800 characters per chunk, configurable from 500 to 1,000
+with `TTS_CHUNK_SIZE` or by passing `chunk_size`. Sentences that exceed the
+target wrap at word boundaries; a single word longer than the target remains
+intact. The utility rejects blank text and input longer than `MAX_TEXT_CHARS`
+(100,000 by default; configurable up to 1,000,000). The maximum applies to the
+raw input before normalization. The chunking step is not yet connected to a
+reader or generation API. Document uploads use the normalization step.
+
+## Document upload API
+
+`POST /api/documents` accepts one multipart file field named `file`. Supported
+files are UTF-8 `.txt` and text-based `.pdf` files. The API checks the extension,
+declared media type, file size, and PDF signature. It returns normalized text,
+character count, and file type:
+
+```sh
+curl --fail -F 'file=@example.pdf;type=application/pdf' http://127.0.0.1:8000/api/documents
+```
+
+The default file limit is 10,000,000 bytes (`MAX_UPLOAD_BYTES`); extracted text
+must fit `MAX_TEXT_CHARS`. Upload data is bounded during multipart parsing,
+then copied to a random filename under `TEMP_DIR`. The original file is deleted
+immediately after extraction, including when extraction fails. The API does not
+retain a document or add a job. Unsupported files return HTTP 415, oversized
+files or extracted text HTTP 413, and unreadable files HTTP 422. Scanned PDFs
+need OCR, which is outside this phase. The original file bytes are never
+returned to the caller.
+
+PDF extraction uses [PyMuPDF](https://pymupdf.readthedocs.io/en/latest/the-basics.html).
+Its upstream documentation describes [AGPL and commercial licensing options](https://pymupdf.readthedocs.io/en/latest/about.html);
+review those terms before distributing or hosting the application.
 
 The [Kokoro ONNX package](https://github.com/thewh1teagle/kokoro-onnx) is MIT
 licensed; the model is Apache 2.0 per upstream. The download script records the
@@ -206,10 +275,12 @@ The frontend container currently runs Vite for local development. Production
 frontend serving, FFmpeg, Cloudflare access, and N95
 deployment belong to later phases.
 
-Verification status: native backend tests, frontend type checking/build, and
-browser connection/failure/retry checks pass. Compose configuration validates.
+Verification status: native backend tests, PDF/TXT upload extraction, frontend
+type checking/build, and browser connection/voice-list/preview-decoding checks
+pass. Compose configuration validates.
 Container builds and startup are still pending because the Docker engine was
-not running during initial verification.
+not running during verification. The in-app browser crashed when its media Play
+control was clicked, so audible playback in that browser remains unverified.
 
 ## Checks
 
@@ -220,8 +291,10 @@ docker compose config --quiet
 ```
 
 The backend tests verify the health contract without runtime files and path
-configuration across launch directories, plus TTS validation, model reuse under
-concurrent calls, and safe failures. The tests do not require a model download.
+configuration across launch directories, plus text normalization/chunking,
+PDF/TXT upload extraction and cleanup, TTS validation, model reuse under
+concurrent calls, safe failures, and the voice/preview API. The tests do not
+require a model download.
 The frontend build includes strict
 TypeScript checking. Test temporary directories and outputs are ignored by Git.
 
@@ -230,7 +303,7 @@ TypeScript checking. Test temporary directories and outputs are ignored by Git.
 ```text
 .
 ├── backend/
-│   ├── app/                 # FastAPI, settings, and services/tts abstraction
+│   ├── app/                 # FastAPI, settings, services/tts, and text utilities
 │   ├── Dockerfile
 │   └── requirements*.txt
 ├── frontend/               # React, Vite, TypeScript, Tailwind
@@ -246,8 +319,9 @@ TypeScript checking. Test temporary directories and outputs are ignored by Git.
 
 The product is named LocalReader; the containing folder can retain any name.
 Model/data directories retain only `.gitkeep` placeholders in Git. Local
-`context.txt`, `phase1.1.txt`, and `phase2.1.txt` handoff notes are also ignored and must be
-transferred separately when another agent uses a different clone or worktree.
+`context.txt`, `phase1.1.txt`, `phase2.1.txt`, `phase3.1.txt`, `phase4.1.txt`, and
+`phase5.1.txt` handoff notes are also ignored and must be transferred separately
+when another agent uses a different clone or worktree.
 
 ## Troubleshooting
 

@@ -6,6 +6,8 @@ from typing import Literal
 from fastapi import FastAPI
 from pydantic import BaseModel
 
+from app.api.documents import router as documents_router
+from app.api.voices import router as voices_router
 from app.config import Settings
 
 
@@ -16,6 +18,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="LocalReader", lifespan=lifespan)
+app.include_router(voices_router)
+app.include_router(documents_router)
 
 
 class HealthResponse(BaseModel):

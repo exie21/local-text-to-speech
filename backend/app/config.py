@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     kokoro_model_path: Path | None = None
     kokoro_voices_path: Path | None = None
     tts_threads: int = Field(default=2, ge=1, le=32)
+    tts_chunk_size: int = Field(default=800, ge=500, le=1000)
+    max_text_chars: int = Field(default=100_000, ge=1, le=1_000_000)
+    max_upload_bytes: int = Field(default=10_000_000, ge=1, le=50_000_000)
 
     @field_validator("model_dir", "temp_dir", "database_dir", mode="before")
     @classmethod
