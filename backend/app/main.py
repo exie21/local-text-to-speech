@@ -35,12 +35,12 @@ app.include_router(jobs_router)
 @app.exception_handler(RequestValidationError)
 async def validation_error(_request, error: RequestValidationError) -> JSONResponse:
     """Keep submitted document text out of validation responses and logs."""
+    first = error.errors()[0]
+    field = ".".join(str(part) for part in first["loc"] if part not in {"body", "query", "path"})
+    message = first["msg"].removeprefix("Value error, ")
     return JSONResponse(
         status_code=422,
-        content={"detail": [
-            {"loc": item["loc"], "msg": item["msg"], "type": item["type"]}
-            for item in error.errors()
-        ]},
+        content={"detail": f"{field}: {message}" if field else f"Invalid request: {message}"},
     )
 
 

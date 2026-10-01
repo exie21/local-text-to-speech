@@ -6,7 +6,7 @@ from app.config import PROJECT_ROOT, Settings
 
 @pytest.fixture(autouse=True)
 def clear_path_environment(monkeypatch):
-    for name in ("MODEL_DIR", "TEMP_DIR", "DATABASE_DIR", "TTS_CHUNK_SIZE", "MAX_TEXT_CHARS", "MAX_UPLOAD_BYTES"):
+    for name in ("MODEL_DIR", "TEMP_DIR", "DATABASE_DIR", "TTS_CHUNK_SIZE", "MAX_TEXT_CHARS", "MAX_UPLOAD_BYTES", "AUDIO_TTL_MINUTES"):
         monkeypatch.delenv(name, raising=False)
 
 
@@ -20,6 +20,7 @@ def test_defaults_and_relative_overrides_are_independent_of_cwd(monkeypatch, wor
     assert defaults.tts_chunk_size == 800
     assert defaults.max_text_chars == 100_000
     assert defaults.max_upload_bytes == 10_000_000
+    assert defaults.audio_ttl_minutes == 30
 
     monkeypatch.setenv("TEMP_DIR", "data/custom-temp")
     assert Settings(_env_file=None).temp_dir == PROJECT_ROOT / "data/custom-temp"
@@ -45,6 +46,7 @@ def test_empty_directory_setting_is_rejected(monkeypatch):
 @pytest.mark.parametrize("name,value", [
     ("TTS_CHUNK_SIZE", "499"), ("TTS_CHUNK_SIZE", "1001"),
     ("MAX_TEXT_CHARS", "0"), ("MAX_UPLOAD_BYTES", "0"),
+    ("AUDIO_TTL_MINUTES", "0"), ("AUDIO_TTL_MINUTES", "1441"),
 ])
 def test_invalid_text_processing_limits_are_rejected(monkeypatch, name, value):
     monkeypatch.setenv(name, value)
@@ -55,6 +57,8 @@ def test_invalid_text_processing_limits_are_rejected(monkeypatch, name, value):
 def test_text_processing_limits_can_be_configured(monkeypatch):
     monkeypatch.setenv("TTS_CHUNK_SIZE", "900")
     monkeypatch.setenv("MAX_TEXT_CHARS", "250000")
+    monkeypatch.setenv("AUDIO_TTL_MINUTES", "0.1")
     settings = Settings(_env_file=None)
     assert settings.tts_chunk_size == 900
     assert settings.max_text_chars == 250_000
+    assert settings.audio_ttl_minutes == 0.1

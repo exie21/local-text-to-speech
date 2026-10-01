@@ -7,20 +7,22 @@ The foundation includes a React/TypeScript frontend with Tailwind CSS,
 a FastAPI backend, portable path settings, and a working connection check.
 Local Kokoro speech generation powers both a developer command and a voice
 preview API. The browser lists installed voices and offers short WAV previews.
-The document API extracts text from TXT and PDF uploads. A SQLite job queue now
-generates ordered WAV chunks for longer text; MP3 assembly is the next phase.
+The document API extracts text from TXT and PDF uploads. A SQLite job queue
+generates a single MP3 from longer text using local Kokoro and FFmpeg, then
+automatically expires the file.
 
 ## Requirements
 
 - Python 3.12.
 - Node.js 24 LTS and npm; `.nvmrc` records the recommended Node major.
+- FFmpeg and ffprobe on `PATH` for native speech jobs; the backend image installs both.
 - Docker with Docker Compose v2 for container development.
 
 Native verification used Python 3.12.11, Node 25.8.2, and npm 11.12.1 on macOS.
 The container definitions use Python 3.12 and Node 24 Linux images, without
-forcing a CPU architecture. No FFmpeg or manual database setup is needed to run
-the API. The backend creates SQLite storage on startup. Speech generation
-requires the separate model download described below.
+forcing a CPU architecture. The backend creates SQLite storage on startup, so
+no manual database setup is needed. Speech generation requires the separate
+model download described below.
 
 ## Native development
 
@@ -98,6 +100,7 @@ Absolute overrides are also accepted. Reading settings creates no runtime files.
 | `TTS_CHUNK_SIZE` | `800` | Text chunk target in characters, 500–1,000. |
 | `MAX_TEXT_CHARS` | `100000` | Maximum raw text length accepted by the text utility, 1–1,000,000. |
 | `MAX_UPLOAD_BYTES` | `10000000` | Maximum uploaded file size, 1–50,000,000 bytes. |
+| `AUDIO_TTL_MINUTES` | `30` | Minutes to retain a finished MP3, greater than 0 and at most 1,440. |
 | `API_PROXY_TARGET` | `http://127.0.0.1:8000` | Vite server only; Compose always sets `http://backend:8000`. |
 | `FRONTEND_PORT` | `5173` | Compose host port only. |
 | `BACKEND_PORT` | `8000` | Compose host port only. |
@@ -264,17 +267,47 @@ model 503. Text and local file paths are absent from job responses.
 Jobs live in SQLite at `DATABASE_DIR/jobs.sqlite3`. Queued chunk text is retained
 locally until a job finishes or fails; it is then removed from the row. One
 worker across processes sharing the database generates chunks in order, placing
-numbered WAV files under `TEMP_DIR/jobs/{id}`. On restart, queued jobs resume;
-an interrupted active job becomes failed and its partial chunks are removed.
-Individual job failures do not stop the API or later jobs.
+numbered WAV files under `TEMP_DIR/jobs/{id}`. The job then enters `assembling`:
+FFmpeg concatenates those chunks and encodes a 128 kb/s mono MP3. `ffprobe`
+measures the finished file. Only after validation does the job become
+`completed`, with its private MP3 at `TEMP_DIR/audio/{id}.mp3`; source WAVs are
+deleted. The job's `expires_at` is set when MP3 assembly completes, using
+`AUDIO_TTL_MINUTES` (30 by default). A separate cleanup thread checks about
+every 60 seconds, including at startup, marks due jobs `expired`, and removes
+their MP3s. Poll requests also enforce expiration immediately. Cleanup retries
+if an MP3 cannot be removed on the first attempt. If a Phase 6 job already
+completed with WAV chunks, the worker assembles them on startup. Older Phase 7
+MP3s get an expiration time based on their original completion time. Queued
+jobs resume on restart; interrupted active jobs fail and their partial audio
+is removed. Individual failures do not stop the API or later jobs.
 
-For this phase, `completed` means all ordered WAV chunks were generated. It does
-not yet mean a playable/downloadable MP3 is available. Phase 7 will assemble
-the chunks with FFmpeg. The `assembling` and `expired` states, final audio path,
-and expiration timestamp are reserved for later phases. Until the expiration
-phase is implemented, completed WAV chunks remain in `TEMP_DIR`; remove local
-development jobs when finished. The browser reader and its polling UI also
-belong to a later phase.
+Native development needs `ffmpeg` and `ffprobe` available on `PATH`; check with
+`ffmpeg -version` and `ffprobe -version`. The Docker backend installs them.
+The public status response never contains the local MP3 path. When a job is
+completed, `GET /api/jobs/{id}/audio` streams the MP3 for playback and
+`GET /api/jobs/{id}/download` sends it as an attachment named with the job ID.
+Both check expiration on every request. Playback supports single HTTP byte
+ranges for seeking (`206 Partial Content`); an invalid or unsatisfiable range
+returns 416. Unknown jobs return 404, unfinished or failed jobs 409, and
+expired or missing audio 410. Successful audio responses use `audio/mpeg`,
+`Cache-Control: no-store`, and an owner-neutral filename; no filesystem path
+is exposed. For example, after obtaining a completed job ID:
+
+```sh
+curl --fail http://127.0.0.1:8000/api/jobs/JOB_ID/audio --output sample.mp3
+curl --fail -H 'Range: bytes=0-1023' \
+  http://127.0.0.1:8000/api/jobs/JOB_ID/audio --output first-kib.bin
+curl --fail http://127.0.0.1:8000/api/jobs/JOB_ID/download --output sample.mp3
+```
+
+Remove the local `sample.mp3` files after inspection. The app's retained MP3
+continues to follow its TTL. `DELETE /api/jobs/{id}` cancels a
+queued or active job, or removes a completed/expired one, and deletes its local
+audio. It returns HTTP 204; an unknown ID returns 404. If file deletion fails,
+the job remains inaccessible and the API returns 503 so deletion can be retried.
+Validation and expected API failures return a JSON `detail` string suitable
+for the frontend. The browser reader and its polling UI belong to Phase 10.
+Native CLI WAV samples are developer files and still require manual removal.
 
 ## Docker development
 
@@ -303,13 +336,13 @@ bind-mounted files remain. Rebuild after source or dependency changes; source
 code is not bind-mounted into these foundation containers.
 
 The frontend container currently runs Vite for local development. Production
-frontend serving, FFmpeg, Cloudflare access, and N95
-deployment belong to later phases.
+frontend serving, Cloudflare access, and N95 deployment belong to later phases.
 
 Verification status: native backend tests, PDF/TXT upload extraction, real-model
-job generation, frontend type checking/build, and browser
-connection/voice-list/preview-decoding checks pass. Compose configuration
-validates.
+two-paragraph MP3 generation, short-TTL expiration, and a live HTTP
+audio/range/download/delete round trip pass. Frontend type checking/build and
+browser connection/voice-list/preview-decoding checks passed in earlier
+phases. Compose configuration validates.
 Container builds and startup are still pending because the Docker engine was
 not running during verification. The in-app browser crashed when its media Play
 control was clicked, so audible playback in that browser remains unverified.
@@ -325,8 +358,11 @@ docker compose config --quiet
 The backend tests verify the health contract, path configuration across launch
 directories, text normalization/chunking, PDF/TXT upload extraction and cleanup,
 TTS validation, model reuse under concurrent calls, safe failures,
-voice/preview API, and SQLite job queue/restart behavior. The suite uses a fake
-engine for jobs and does not require a model download.
+voice/preview API, SQLite job queue/restart behavior, FFmpeg MP3 assembly, and
+automatic/request-time MP3 expiration. They also cover DELETE cancellation and
+cleanup recovery, audio playback/download, range seeking, and safe API errors.
+The suite uses a fake engine for jobs and does not require a model download;
+FFmpeg and ffprobe must be installed.
 The frontend build includes strict
 TypeScript checking. Test temporary directories and outputs are ignored by Git.
 
@@ -341,7 +377,7 @@ TypeScript checking. Test temporary directories and outputs are ignored by Git.
 ├── frontend/               # React, Vite, TypeScript, Tailwind
 ├── models/                 # Local model files (ignored)
 ├── data/
-│   ├── temp/               # Temporary runtime files (ignored)
+│   ├── temp/               # Intermediate WAVs and generated MP3s (ignored)
 │   └── database/           # SQLite job storage (ignored)
 ├── scripts/                # Explicit model download and native WAV generation
 ├── tests/                  # Backend checks
@@ -352,8 +388,9 @@ TypeScript checking. Test temporary directories and outputs are ignored by Git.
 The product is named LocalReader; the containing folder can retain any name.
 Model/data directories retain only `.gitkeep` placeholders in Git. Local
 `context.txt`, `phase1.1.txt`, `phase2.1.txt`, `phase3.1.txt`, `phase4.1.txt`, and
-`phase5.1.txt`, and `phase6.1.txt` handoff notes are also ignored and must be
-transferred separately when another agent uses a different clone or worktree.
+`phase5.1.txt`, `phase6.1.txt`, `phase7.1.txt`, `phase8.1.txt`, and
+`phase9.1.txt` handoff notes are also ignored and must be transferred
+separately when another agent uses a different clone or worktree.
 
 ## Troubleshooting
 

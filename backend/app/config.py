@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     tts_chunk_size: int = Field(default=800, ge=500, le=1000)
     max_text_chars: int = Field(default=100_000, ge=1, le=1_000_000)
     max_upload_bytes: int = Field(default=10_000_000, ge=1, le=50_000_000)
+    audio_ttl_minutes: float = Field(default=30, gt=0, le=1440)
 
     @field_validator("model_dir", "temp_dir", "database_dir", mode="before")
     @classmethod
