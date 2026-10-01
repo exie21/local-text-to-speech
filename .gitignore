@@ -1,0 +1,33 @@
+# Local planning and agent handoff context
+/context.txt
+/phase1.1.txt
+/phase2.1.txt
+
+# Local configuration (examples belong in Git)
+.env
+.env.*
+!.env.example
+
+# Dependencies, build output, and caches
+node_modules/
+dist/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.cache/
+*.tsbuildinfo
+*.log
+.DS_Store
+
+# Models and runtime data; retain empty directory placeholders
+/models/*
+!/models/.gitkeep
+/data/*
+!/data/temp/
+!/data/database/
+/data/temp/*
+!/data/temp/.gitkeep
+/data/database/*
+!/data/database/.gitkeep

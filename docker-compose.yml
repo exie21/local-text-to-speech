@@ -1,0 +1,35 @@
+name: localreader
+
+services:
+  backend:
+    build:
+      context: ./backend
+    environment:
+      MODEL_DIR: /app/models
+      TEMP_DIR: /app/data/temp
+      DATABASE_DIR: /app/data/database
+      TTS_THREADS: ${TTS_THREADS:-2}
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - type: bind
+        source: ${MODEL_DIR:-./models}
+        target: /app/models
+        read_only: true
+      - type: bind
+        source: ${TEMP_DIR:-./data/temp}
+        target: /app/data/temp
+      - type: bind
+        source: ${DATABASE_DIR:-./data/database}
+        target: /app/data/database
+
+  frontend:
+    build:
+      context: ./frontend
+    environment:
+      API_PROXY_TARGET: http://backend:8000
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-5173}:5173"
+    depends_on:
+      backend:
+        condition: service_healthy
