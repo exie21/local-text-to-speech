@@ -9,6 +9,9 @@
 /phase7.1.txt
 /phase8.1.txt
 /phase9.1.txt
+/phase10.1.txt
+/phase11.1.txt
+/phase12.1.txt
 
 # Local configuration (examples belong in Git)
 .env

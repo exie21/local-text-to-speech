@@ -146,7 +146,7 @@ backend/.venv/bin/python scripts/synthesize.py "Hello, this is LocalReader." --v
 The command prints a unique filename under `TEMP_DIR`. You can choose a filename
 with `--output hello.wav`; existing files are never overwritten. To change
 generated speech speed, pass `--speed 1.25`. The supported synthesis range is
-0.5–2.0; this is separate from future browser playback speed controls.
+0.5–2.0; this is separate from the browser's playback speed control.
 
 Ten provisional English voices are exposed through friendly IDs:
 
@@ -306,7 +306,20 @@ queued or active job, or removes a completed/expired one, and deletes its local
 audio. It returns HTTP 204; an unknown ID returns 404. If file deletion fails,
 the job remains inaccessible and the API returns 503 so deletion can be retried.
 Validation and expected API failures return a JSON `detail` string suitable
-for the frontend. The browser reader and its polling UI belong to Phase 10.
+for the frontend.
+
+## Browser reader
+
+Open the frontend, paste text or select/drop a UTF-8 TXT or text-based PDF,
+choose a voice and generation speed, then click **Generate audio**. An upload
+replaces the text area with extracted text; the backend deletes the source file
+immediately after extraction. The page polls the job and shows chunk progress,
+then loads the finished MP3 into an HTML5 player. Native controls provide
+seeking, and the page adds play/pause, 10-second skips, playback speeds from
+0.5× to 3×, and an MP3 download link. Playback speed changes only the current
+browser player; generation speed changes the synthesized audio. The countdown
+shows the remaining retention time and disables playback/download after expiry.
+The default expiry is 30 minutes from job completion.
 Native CLI WAV samples are developer files and still require manual removal.
 
 ## Docker development
@@ -341,11 +354,15 @@ frontend serving, Cloudflare access, and N95 deployment belong to later phases.
 Verification status: native backend tests, PDF/TXT upload extraction, real-model
 two-paragraph MP3 generation, short-TTL expiration, and a live HTTP
 audio/range/download/delete round trip pass. Frontend type checking/build and
-browser connection/voice-list/preview-decoding checks passed in earlier
-phases. Compose configuration validates.
+browser connection/voice-list/preview-decoding checks passed. A native Mac
+browser run also generated a real MP3, decoded it, sought within it, changed
+playback rate, and showed the expired state after a one-minute test TTL. A
+phone-width layout check found no horizontal overflow at a 346 CSS-pixel
+viewport. Compose configuration validates.
 Container builds and startup are still pending because the Docker engine was
-not running during verification. The in-app browser crashed when its media Play
-control was clicked, so audible playback in that browser remains unverified.
+not running during verification. Audible playback, browser file upload, and a
+browser-triggered download have not yet been verified end to end; the in-app
+browser crashed when its media Play control was clicked in an earlier phase.
 
 ## Checks
 
@@ -389,7 +406,7 @@ The product is named LocalReader; the containing folder can retain any name.
 Model/data directories retain only `.gitkeep` placeholders in Git. Local
 `context.txt`, `phase1.1.txt`, `phase2.1.txt`, `phase3.1.txt`, `phase4.1.txt`, and
 `phase5.1.txt`, `phase6.1.txt`, `phase7.1.txt`, `phase8.1.txt`, and
-`phase9.1.txt` handoff notes are also ignored and must be transferred
+`phase9.1.txt`, `phase10.1.txt`, `phase11.1.txt`, and `phase12.1.txt` handoff notes are also ignored and must be transferred
 separately when another agent uses a different clone or worktree.
 
 ## Troubleshooting
