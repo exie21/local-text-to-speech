@@ -14,7 +14,7 @@ services:
       MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-10000000}
       AUDIO_TTL_MINUTES: ${AUDIO_TTL_MINUTES:-30}
     ports:
-      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
+      - "${HOST_BIND_ADDRESS:-127.0.0.1}:${BACKEND_PORT:-8000}:8000"
     volumes:
       - type: bind
         source: ${MODEL_DIR:-./models}
@@ -31,7 +31,7 @@ services:
     build:
       context: ./frontend
     ports:
-      - "127.0.0.1:${FRONTEND_PORT:-5173}:8080"
+      - "${HOST_BIND_ADDRESS:-127.0.0.1}:${FRONTEND_PORT:-5173}:8080"
     depends_on:
       backend:
         condition: service_healthy

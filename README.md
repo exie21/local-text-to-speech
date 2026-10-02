@@ -102,6 +102,7 @@ Absolute overrides are also accepted. Reading settings creates no runtime files.
 | `MAX_UPLOAD_BYTES` | `10000000` | Maximum uploaded file size, 1–50,000,000 bytes. |
 | `AUDIO_TTL_MINUTES` | `30` | Minutes to retain a finished MP3, greater than 0 and at most 1,440. |
 | `API_PROXY_TARGET` | `http://127.0.0.1:8000` | Native Vite development only; the container frontend proxies to `http://backend:8000` through Nginx. |
+| `HOST_BIND_ADDRESS` | `127.0.0.1` | Compose host interface for both published ports; keep loopback unless private LAN access is needed. |
 | `FRONTEND_PORT` | `5173` | Compose host port only. |
 | `BACKEND_PORT` | `8000` | Compose host port only. |
 
@@ -111,7 +112,7 @@ changing it. The proxy target stays in the server configuration and is not
 included in the browser bundle. Never put credentials in `VITE_*` variables,
 because Vite exposes those to the browser.
 
-Compose reads the root `.env` to interpolate host paths and port mappings, then
+Compose reads the root `.env` to interpolate host paths, bind address, and port mappings, then
 explicitly supplies container paths to the backend. The frontend image's Nginx
 configuration proxies `/api` to the backend on the internal Compose network.
 Changing a native proxy target does not change container networking. Create any
@@ -339,7 +340,9 @@ docker compose exec backend ffprobe -version
 
 Open [EdSpeech](http://127.0.0.1:5173). Compose waits for the backend's health
 check before starting the frontend. Both published ports bind to host loopback
-by default. The frontend image builds the React app and serves its static files
+by default. Set `HOST_BIND_ADDRESS` to the N95's private LAN address for phone
+testing, or to `0.0.0.0` only when the private network and host firewall are
+configured. The frontend image builds the React app and serves its static files
 with Nginx on container port 8080; Nginx forwards `/api` requests to FastAPI.
 The native Mac workflow continues to use Vite for development. Models and data
 are project bind mounts; they are not copied into images. Each image has a
