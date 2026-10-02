@@ -101,7 +101,7 @@ Absolute overrides are also accepted. Reading settings creates no runtime files.
 | `MAX_TEXT_CHARS` | `100000` | Maximum raw text length accepted by the text utility, 1–1,000,000. |
 | `MAX_UPLOAD_BYTES` | `10000000` | Maximum uploaded file size, 1–50,000,000 bytes. |
 | `AUDIO_TTL_MINUTES` | `30` | Minutes to retain a finished MP3, greater than 0 and at most 1,440. |
-| `API_PROXY_TARGET` | `http://127.0.0.1:8000` | Vite server only; Compose always sets `http://backend:8000`. |
+| `API_PROXY_TARGET` | `http://127.0.0.1:8000` | Native Vite development only; the container frontend proxies to `http://backend:8000` through Nginx. |
 | `FRONTEND_PORT` | `5173` | Compose host port only. |
 | `BACKEND_PORT` | `8000` | Compose host port only. |
 
@@ -112,7 +112,8 @@ included in the browser bundle. Never put credentials in `VITE_*` variables,
 because Vite exposes those to the browser.
 
 Compose reads the root `.env` to interpolate host paths and port mappings, then
-explicitly supplies container paths and the internal proxy target to services.
+explicitly supplies container paths to the backend. The frontend image's Nginx
+configuration proxies `/api` to the backend on the internal Compose network.
 Changing a native proxy target does not change container networking. Create any
 custom host directories before starting Compose. Keep local `.env` files out
 of Git; `.env.example` is safe to track.
@@ -322,7 +323,7 @@ shows the remaining retention time and disables playback/download after expiry.
 The default expiry is 30 minutes from job completion.
 Native CLI WAV samples are developer files and still require manual removal.
 
-## Docker development
+## Docker Compose
 
 Start Docker Desktop on Mac (or the Docker engine on Linux) first. Stop native
 services if they occupy ports 5173/8000, or set alternate Compose host ports.
@@ -331,13 +332,19 @@ services if they occupy ports 5173/8000, or set alternate Compose host ports.
 docker compose config --quiet
 docker compose up --build -d --wait
 curl --fail http://127.0.0.1:5173/api/health
+docker compose exec frontend nginx -t
+docker compose exec backend ffmpeg -version
+docker compose exec backend ffprobe -version
 ```
 
 Open [EdSpeech](http://127.0.0.1:5173). Compose waits for the backend's health
 check before starting the frontend. Both published ports bind to host loopback
-by default. Models and data are project bind mounts; they are not copied into
-images. Each image has a restricted build context that excludes local
-dependencies, environment files, and caches.
+by default. The frontend image builds the React app and serves its static files
+with Nginx on container port 8080; Nginx forwards `/api` requests to FastAPI.
+The native Mac workflow continues to use Vite for development. Models and data
+are project bind mounts; they are not copied into images. Each image has a
+restricted build context that excludes local dependencies, environment files,
+and caches.
 
 ```sh
 docker compose logs --tail=100
@@ -348,8 +355,7 @@ docker compose down
 bind-mounted files remain. Rebuild after source or dependency changes; source
 code is not bind-mounted into these foundation containers.
 
-The frontend container currently runs Vite for local development. Production
-frontend serving, Cloudflare access, and N95 deployment belong to later phases.
+Cloudflare access and N95 deployment belong to later phases.
 
 Verification status: 99 native backend tests and the strict frontend build
 pass. Real Mac browser checks uploaded TXT and PDF files, displayed extracted
@@ -364,11 +370,20 @@ chunks while preserving completed jobs; a test MP3 later expired and was
 deleted. A phone-width layout check found no horizontal overflow at a 346
 CSS-pixel viewport. Compose configuration validates.
 
-Container builds and startup are still pending because the Docker engine was
-not running during verification. Browser-clicked download, listening-based
-voice quality review, and testing on a physical phone over LAN also remain
-open. The in-app browser's playback state and decoded audio were verified,
-but this check alone cannot assess how the speech sounds to a listener.
+Both container images built on Docker Desktop for Mac (ARM64). Container
+startup and the Nginx proxy still need runtime verification: Docker Desktop
+stalled while starting both containers, then its engine failed to restart.
+Neither container reached a running state. Browser-clicked
+download, listening-based voice quality review, and testing on a physical
+phone over LAN also remain open. The in-app browser's playback state and
+decoded audio were verified, but this check alone cannot assess how the speech
+sounds to a listener.
+
+The frontend's Docker build steps were also checked without a daemon: a clean
+offline `npm ci` and build produced the same CSS and JavaScript files as the
+normal project build. The Nginx container configuration, health checks,
+FFmpeg inside the backend container, and a real Linux speech job remain
+unverified. The target Intel N95 architecture is AMD64 and has not been tested.
 
 ## Checks
 
@@ -397,7 +412,7 @@ TypeScript checking. Test temporary directories and outputs are ignored by Git.
 │   ├── app/                 # FastAPI, settings, TTS/jobs services, and text utilities
 │   ├── Dockerfile
 │   └── requirements*.txt
-├── frontend/               # React, Vite, TypeScript, Tailwind
+├── frontend/               # React, Vite, TypeScript, Tailwind, and Nginx container config
 ├── models/                 # Local model files (ignored)
 ├── data/
 │   ├── temp/               # Intermediate WAVs and generated MP3s (ignored)

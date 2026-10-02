@@ -4,5 +4,6 @@
 !index.html
 !tsconfig.json
 !vite.config.ts
+!nginx.conf
 !src/
 !src/**

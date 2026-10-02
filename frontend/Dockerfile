@@ -1,4 +1,4 @@
-FROM node:24-bookworm-slim
+FROM node:24-bookworm-slim AS build
 
 WORKDIR /app/frontend
 
@@ -8,7 +8,14 @@ RUN npm ci --no-audit --no-fund
 COPY index.html tsconfig.json vite.config.ts ./
 COPY src ./src
 
-EXPOSE 5173
+RUN npm run build
 
-# Phase 1 development server; production serving is handled in Phase 13.
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+FROM nginx:stable-alpine
+
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/frontend/dist /usr/share/nginx/html
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
+    CMD wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1

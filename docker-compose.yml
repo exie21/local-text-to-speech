@@ -30,10 +30,8 @@ services:
   frontend:
     build:
       context: ./frontend
-    environment:
-      API_PROXY_TARGET: http://backend:8000
     ports:
-      - "127.0.0.1:${FRONTEND_PORT:-5173}:5173"
+      - "127.0.0.1:${FRONTEND_PORT:-5173}:8080"
     depends_on:
       backend:
         condition: service_healthy
