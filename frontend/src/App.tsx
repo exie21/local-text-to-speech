@@ -236,28 +236,26 @@ export default function App() {
   const playable = job?.status === 'completed' && !expired
 
   return <div className="mx-auto flex min-h-dvh max-w-6xl flex-col px-5 sm:px-10">
-    <header className="flex items-center justify-between border-b border-ink/15 py-6">
-      <a href="/" className="flex items-center gap-3 text-xl font-semibold"><span aria-hidden="true" className="grid size-10 place-items-center rounded-full bg-ink text-paper">▶</span>LocalReader</a>
-      <span className="hidden text-xs font-medium uppercase tracking-[0.16em] text-ink/65 sm:block">Private listening</span>
+    <header className="flex items-center border-b border-ink/15 py-6">
+      <a href="/" className="flex items-center gap-3 text-xl font-semibold"><span aria-hidden="true" className="grid size-10 place-items-center rounded-full bg-ink text-paper">▶</span>EdSpeech</a>
     </header>
     <main className="flex-1 py-10 sm:py-14">
       <div className="grid gap-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:gap-14">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-ink/65">Your reading companion</p>
-          <h1 className="mt-5 font-serif text-5xl leading-tight sm:text-6xl">A private space<br />to listen.</h1>
-          <p className="mt-6 max-w-md text-lg leading-relaxed text-ink/70">Paste a passage or bring a document. LocalReader turns it into speech on your own device.</p>
+          <h1 className="font-serif text-5xl leading-tight sm:text-6xl">Text to speech</h1>
+          <p className="mt-6 max-w-md text-lg leading-relaxed text-ink/70">Paste text or upload a TXT/PDF, choose a voice, and generate an MP3.</p>
           <section aria-label="Connection status" className="mt-9 rounded-2xl border border-ink/15 bg-white/65 p-5">
-            <h2 role="status" aria-live="polite" className="font-semibold">{connection === 'connected' ? '● Connected to your local service' : connection === 'checking' ? '● Connecting…' : '● Local service unavailable'}</h2>
-            <p className="mt-2 text-sm text-ink/70">{connection === 'connected' ? 'Your text and speech stay with this local service.' : 'Make sure the backend is running, then try again.'}</p>
+            <h2 role="status" aria-live="polite" className="font-semibold">{connection === 'connected' ? '● Connected to local service' : connection === 'checking' ? '● Connecting…' : '● Local service unavailable'}</h2>
+            <p className="mt-2 text-sm text-ink/70">{connection === 'connected' ? 'Backend is ready.' : 'Start the backend, then try again.'}</p>
             <button type="button" disabled={connection === 'checking'} onClick={() => setAttempt((value) => value + 1)} className="mt-4 text-sm font-semibold underline underline-offset-4 disabled:opacity-50">{connection === 'unavailable' ? 'Try again' : 'Check connection'}</button>
           </section>
         </div>
         <div className="space-y-6">
           <section aria-label="Create audio" className="rounded-2xl border border-ink/15 bg-white/75 p-5 shadow-sm sm:p-7">
-            <h2 className="font-serif text-2xl">Your text</h2>
+            <h2 className="font-serif text-2xl">Text</h2>
             <p className="mt-1 text-sm text-ink/65">Paste text, choose a TXT or PDF, or drop one below.</p>
             <label htmlFor="reader-text" className="sr-only">Text to read aloud</label>
-            <textarea id="reader-text" value={text} onChange={(event) => { setText(event.target.value); setDocumentName(null) }} placeholder="Paste the words you want to hear…" rows={10} className="mt-5 w-full resize-y rounded-xl border border-ink/25 bg-white p-4 leading-relaxed focus-visible:outline-2 focus-visible:outline-ink" />
+            <textarea id="reader-text" value={text} onChange={(event) => { setText(event.target.value); setDocumentName(null) }} placeholder="Paste text here…" rows={10} className="mt-5 w-full resize-y rounded-xl border border-ink/25 bg-white p-4 leading-relaxed focus-visible:outline-2 focus-visible:outline-ink" />
             <div onDragOver={(event) => { event.preventDefault(); setDragging(true) }} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); const file = event.dataTransfer.files[0]; if (file) void handleFile(file) }} className={`mt-3 rounded-xl border border-dashed p-4 text-sm focus-within:ring-2 focus-within:ring-ink ${dragging ? 'border-ink bg-ink/10' : 'border-ink/25 bg-paper/65'}`}>
               <label htmlFor="document-file" className="cursor-pointer font-semibold underline underline-offset-4">Upload TXT or PDF</label>
               <input ref={fileInputRef} id="document-file" type="file" accept=".txt,.pdf,text/plain,application/pdf" disabled={uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void handleFile(file) }} className="sr-only" />
@@ -282,8 +280,8 @@ export default function App() {
 
           {job && <section aria-label="Speech job" className="rounded-2xl border border-ink/15 bg-white/75 p-5 shadow-sm sm:p-7">
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div><h2 className="font-serif text-2xl">{playable ? 'Ready to listen' : expired ? 'Audio expired' : job.status === 'failed' ? 'Generation failed' : 'Making your audio'}</h2>
-                <p role="status" aria-live="polite" className="mt-1 text-sm text-ink/65">{job.status === 'queued' ? 'Waiting for the current job.' : job.status === 'processing' ? `Reading chunk ${job.current_chunk} of ${job.total_chunks}.` : job.status === 'assembling' ? 'Putting the audio together…' : playable ? 'Your MP3 is ready.' : expired ? 'The MP3 has been deleted.' : job.error}</p></div>
+              <div><h2 className="font-serif text-2xl">{playable ? 'Audio ready' : expired ? 'Audio expired' : job.status === 'failed' ? 'Generation failed' : 'Generating audio'}</h2>
+                <p role="status" aria-live="polite" className="mt-1 text-sm text-ink/65">{job.status === 'queued' ? 'Job queued.' : job.status === 'processing' ? `Reading chunk ${job.current_chunk} of ${job.total_chunks}.` : job.status === 'assembling' ? 'Assembling MP3…' : playable ? 'MP3 ready.' : expired ? 'MP3 deleted.' : job.error}</p></div>
               {active && <button type="button" onClick={cancel} className="text-sm font-semibold underline underline-offset-4">Cancel job</button>}
             </div>
             {active && <div className="mt-5"><div className="flex justify-between text-xs font-medium"><span>Progress</span><span>{job.progress}%</span></div><progress value={job.progress} max={100} aria-label="Generation progress" className="mt-2 h-3 w-full accent-ink" /><p className="mt-1 text-xs text-ink/60">{job.current_chunk} of {job.total_chunks} chunks complete</p></div>}
@@ -291,12 +289,11 @@ export default function App() {
               <audio ref={audioRef} key={job.id} controls preload="metadata" aria-label="Generated speech audio" src={jobAudioUrl(job.id)} onLoadedMetadata={(event) => { event.currentTarget.playbackRate = playbackSpeed }} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)} onError={() => { setReaderError('Audio could not load. Check whether it has expired.'); void getJob(job.id, new AbortController().signal).then((latest) => { if (activeJobId.current === job.id) setJob(latest) }).catch(() => {}) }} className="w-full" />
               <div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={() => skip(-10)} className={outline}>−10 sec</button><button type="button" onClick={() => { const audio = audioRef.current; if (!audio) return; if (audio.paused) void audio.play().catch(() => setReaderError('Audio could not start.')); else audio.pause() }} className={outline}>{playing ? 'Pause' : 'Play'}</button><button type="button" onClick={() => skip(10)} className={outline}>+10 sec</button></div>
               <fieldset className="mt-5"><legend className="text-sm font-medium">Playback speed</legend><div className="mt-2 flex flex-wrap gap-2">{playbackSpeeds.map((speed) => <button key={speed} type="button" aria-pressed={playbackSpeed === speed} onClick={() => setSpeed(speed)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${playbackSpeed === speed ? 'border-ink bg-ink text-paper' : 'border-ink/25 bg-white'}`}>{speed}×</button>)}</div></fieldset>
-              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-ink/10 pt-4"><a href={jobDownloadUrl(job.id)} download={`localreader-${job.id}.mp3`} className={button}>Download MP3</a><p className="text-sm text-ink/65">Automatically deletes in <strong>{clock(remaining)}</strong></p></div>
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-ink/10 pt-4"><a href={jobDownloadUrl(job.id)} download={`edspeech-${job.id}.mp3`} className={button}>Download MP3</a><p className="text-sm text-ink/65">Automatically deletes in <strong>{clock(remaining)}</strong></p></div>
             </div>}
           </section>}
         </div>
       </div>
     </main>
-    <footer className="flex flex-wrap justify-between gap-3 border-t border-ink/15 py-6 text-xs text-ink/60"><span>LocalReader · Local development</span><span>Private text-to-speech on your device</span></footer>
   </div>
 }

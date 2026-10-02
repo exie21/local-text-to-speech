@@ -609,7 +609,7 @@ def test_audio_and_download_routes_support_browser_ranges(job_env):
                 download = await client.get(f"/api/jobs/{job_id}/download")
                 assert download.status_code == 200
                 assert download.content == source
-                assert download.headers["content-disposition"] == f'attachment; filename="localreader-{job_id}.mp3"'
+                assert download.headers["content-disposition"] == f'attachment; filename="edspeech-{job_id}.mp3"'
 
                 first = await client.get(audio_url, headers={"range": "bytes=0-99"})
                 assert first.status_code == 206

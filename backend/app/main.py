@@ -1,4 +1,4 @@
-"""LocalReader's API entry point."""
+"""EdSpeech's API entry point."""
 
 from contextlib import asynccontextmanager
 from typing import Literal
@@ -26,7 +26,7 @@ async def lifespan(app: FastAPI):
         app.state.jobs.stop()
 
 
-app = FastAPI(title="LocalReader", lifespan=lifespan)
+app = FastAPI(title="EdSpeech", lifespan=lifespan)
 app.include_router(voices_router)
 app.include_router(documents_router)
 app.include_router(jobs_router)

@@ -195,7 +195,7 @@ def _audio_response(job_id: str, request: Request, *, download: bool) -> Streami
             "X-Content-Type-Options": "nosniff",
             "Content-Length": str(end - start + 1),
             "Content-Disposition": (
-                f'{"attachment" if download else "inline"}; filename="localreader-{job_id}.mp3"'
+                f'{"attachment" if download else "inline"}; filename="edspeech-{job_id}.mp3"'
             ),
         }
         if partial:

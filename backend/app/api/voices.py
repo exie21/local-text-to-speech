@@ -8,7 +8,7 @@ from app.services.tts.base import InvalidTTSInput, TTSError, TTSUnavailable
 from app.services.tts.registry import get_tts_engine
 
 router = APIRouter(prefix="/api/voices", tags=["voices"])
-PREVIEW_TEXT = "Welcome to LocalReader. This is a preview of this voice."
+PREVIEW_TEXT = "This is a preview of the selected voice."
 
 
 class VoiceResponse(BaseModel):

@@ -1,1 +1,1 @@
-"""HTTP routes for LocalReader."""
+"""HTTP routes for EdSpeech."""

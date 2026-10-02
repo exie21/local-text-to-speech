@@ -41,7 +41,7 @@ def main() -> None:
         with partial.open("xb") as output:
             try:
                 print(f"Downloading {name} ({size / 1_000_000:.1f} MB)…", flush=True)
-                request = Request(f"{RELEASE_URL}/{name}", headers={"User-Agent": "LocalReader-setup"})
+                request = Request(f"{RELEASE_URL}/{name}", headers={"User-Agent": "EdSpeech-setup"})
                 with urlopen(request, timeout=30) as response:
                     while chunk := response.read(1024 * 1024):
                         output.write(chunk)

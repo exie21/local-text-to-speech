@@ -1,4 +1,4 @@
-# LocalReader
+# EdSpeech
 
 A private, local text-to-speech application, developed on a Mac and intended
 to run in Docker on a Linux Intel N95 mini PC.
@@ -55,8 +55,8 @@ Start the frontend in a second terminal:
 npm --prefix frontend run dev --cache "$PWD/.cache/npm"
 ```
 
-Open [LocalReader](http://127.0.0.1:5173). The page should show
-**Connected to your local service** and list available voices after model setup.
+Open [EdSpeech](http://127.0.0.1:5173). The page should show
+**Connected to local service** and list available voices after model setup.
 It makes relative `/api` requests; Vite forwards them to FastAPI. No separate
 CORS setup is needed.
 The check runs on page load and when you click **Check connection**; it times
@@ -140,7 +140,7 @@ needed for installation and this setup step; inference uses local CPU execution.
 Generate a WAV:
 
 ```sh
-backend/.venv/bin/python scripts/synthesize.py "Hello, this is LocalReader." --voice heart
+backend/.venv/bin/python scripts/synthesize.py "Hello, this is EdSpeech." --voice heart
 ```
 
 The command prints a unique filename under `TEMP_DIR`. You can choose a filename
@@ -186,8 +186,8 @@ this response for its selector. The first request lazily loads the local model;
 if model setup is incomplete, the endpoint returns HTTP 503 with a setup hint.
 `/api/health` remains available even when the model is absent.
 
-`POST /api/voices/{voice_id}/preview` synthesizes only “Welcome to LocalReader.
-This is a preview of this voice.” It returns `audio/wav` mono PCM with
+`POST /api/voices/{voice_id}/preview` synthesizes only “This is a preview of
+the selected voice.” It returns `audio/wav` mono PCM with
 `Cache-Control: no-store`. The API creates this audio in memory; it does not
 write a preview file or accept custom text. Invalid voices return HTTP 404,
 missing models HTTP 503, and synthesis failures HTTP 502. For example:
@@ -254,7 +254,7 @@ when the job is submitted. It returns HTTP 202 with a UUID and `queued` status:
 
 ```sh
 curl --fail -H 'Content-Type: application/json' \
-  -d '{"text":"Hello from LocalReader.","voice":"heart"}' \
+  -d '{"text":"Hello from EdSpeech.","voice":"heart"}' \
   http://127.0.0.1:8000/api/jobs
 ```
 
@@ -333,7 +333,7 @@ docker compose up --build -d --wait
 curl --fail http://127.0.0.1:5173/api/health
 ```
 
-Open [LocalReader](http://127.0.0.1:5173). Compose waits for the backend's health
+Open [EdSpeech](http://127.0.0.1:5173). Compose waits for the backend's health
 check before starting the frontend. Both published ports bind to host loopback
 by default. Models and data are project bind mounts; they are not copied into
 images. Each image has a restricted build context that excludes local
@@ -351,18 +351,24 @@ code is not bind-mounted into these foundation containers.
 The frontend container currently runs Vite for local development. Production
 frontend serving, Cloudflare access, and N95 deployment belong to later phases.
 
-Verification status: native backend tests, PDF/TXT upload extraction, real-model
-two-paragraph MP3 generation, short-TTL expiration, and a live HTTP
-audio/range/download/delete round trip pass. Frontend type checking/build and
-browser connection/voice-list/preview-decoding checks passed. A native Mac
-browser run also generated a real MP3, decoded it, sought within it, changed
-playback rate, and showed the expired state after a one-minute test TTL. A
-phone-width layout check found no horizontal overflow at a 346 CSS-pixel
-viewport. Compose configuration validates.
+Verification status: 99 native backend tests and the strict frontend build
+pass. Real Mac browser checks uploaded TXT and PDF files, displayed extracted
+text, rejected an unsupported file, and left no uploaded source files in the
+backend temporary directory. A PDF-based job generated an MP3 at 1.25×
+generation speed; the browser decoded and started playback without a media
+error, then changed playback rate to 1.75× without a new job. A 2,340-character
+job completed four chunks and produced a 122.6-second MP3. The download
+endpoint returned a valid 3.968-second MP3 with attachment headers. After a
+backend restart, startup cleanup removed deliberately orphaned audio and
+chunks while preserving completed jobs; a test MP3 later expired and was
+deleted. A phone-width layout check found no horizontal overflow at a 346
+CSS-pixel viewport. Compose configuration validates.
+
 Container builds and startup are still pending because the Docker engine was
-not running during verification. Audible playback, browser file upload, and a
-browser-triggered download have not yet been verified end to end; the in-app
-browser crashed when its media Play control was clicked in an earlier phase.
+not running during verification. Browser-clicked download, listening-based
+voice quality review, and testing on a physical phone over LAN also remain
+open. The in-app browser's playback state and decoded audio were verified,
+but this check alone cannot assess how the speech sounds to a listener.
 
 ## Checks
 
@@ -402,7 +408,7 @@ TypeScript checking. Test temporary directories and outputs are ignored by Git.
 └── docker-compose.yml
 ```
 
-The product is named LocalReader; the containing folder can retain any name.
+The product is named EdSpeech; the containing folder can retain any name.
 Model/data directories retain only `.gitkeep` placeholders in Git. Local
 `context.txt`, `phase1.1.txt`, `phase2.1.txt`, `phase3.1.txt`, `phase4.1.txt`, and
 `phase5.1.txt`, `phase6.1.txt`, `phase7.1.txt`, `phase8.1.txt`, and

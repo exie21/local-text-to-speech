@@ -1,4 +1,4 @@
-"""LocalReader backend."""
+"""EdSpeech backend."""
 
 import os
 

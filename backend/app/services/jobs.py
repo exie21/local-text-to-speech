@@ -291,9 +291,9 @@ class JobManager:
         self._lock_path = settings.database_dir / "jobs.worker.lock"
 
     def start(self) -> None:
-        self._cleanup_thread = Thread(target=self._run_cleanup, name="localreader-expiration", daemon=True)
+        self._cleanup_thread = Thread(target=self._run_cleanup, name="edspeech-expiration", daemon=True)
         self._cleanup_thread.start()
-        self._thread = Thread(target=self._run, name="localreader-jobs", daemon=True)
+        self._thread = Thread(target=self._run, name="edspeech-jobs", daemon=True)
         self._thread.start()
 
     def stop(self) -> None:
