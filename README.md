@@ -420,6 +420,11 @@ on the N95, then test its local frontend at `http://127.0.0.1:5173` before
 making any external access changes. The Mac container checks do not establish
 N95 performance or Jellyfin impact; record those on the target.
 
+Before deployment, run `bash scripts/n95_preflight.sh` on the N95. It reports
+the Linux architecture, Docker and Compose availability, engine reachability,
+memory, disk space, and transfer checksums. It is read-only and does not start
+or stop containers.
+
 ## Checks
 
 ```sh
@@ -452,7 +457,7 @@ TypeScript checking. Test temporary directories and outputs are ignored by Git.
 ├── data/
 │   ├── temp/               # Intermediate WAVs and generated MP3s (ignored)
 │   └── database/           # SQLite job storage (ignored)
-├── scripts/                # Explicit model download and native WAV generation
+├── scripts/                # Model setup, native WAV generation, and N95 preflight
 ├── tests/                  # Backend checks
 ├── .env.example
 └── docker-compose.yml
