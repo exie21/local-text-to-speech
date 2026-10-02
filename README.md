@@ -367,25 +367,32 @@ job completed four chunks and produced a 122.6-second MP3. The download
 endpoint returned a valid 3.968-second MP3 with attachment headers. A separate
 browser click on **Download MP3** triggered a download event and a successful
 HTTP 200 response for a real generated MP3. After a backend restart, startup
-cleanup removed deliberately orphaned audio and
-chunks while preserving completed jobs; a test MP3 later expired and was
+cleanup removed deliberately orphaned audio and chunks while preserving
+completed jobs; a test MP3 later expired and was
 deleted. A phone-width layout check found no horizontal overflow at a 346
 CSS-pixel viewport. Compose configuration validates.
 
-Both container images built on Docker Desktop for Mac (ARM64). Container
-startup and the Nginx proxy still need runtime verification: Docker Desktop
-stalled while starting both containers, then its engine failed to restart.
-Neither container reached a running state. Listening-based voice quality
-review and testing on a physical phone over LAN also remain open. The in-app
-browser's playback state and
-decoded audio were verified, but this check alone cannot assess how the speech
-sounds to a listener.
+Both container images built on Docker Desktop for Mac (ARM64). After resuming
+Docker Desktop's engine from Resource Saver mode, Compose started both
+containers healthy. Nginx syntax, FFmpeg/ffprobe in the backend image, static
+frontend serving, and `/api/health` and `/api/voices` through Nginx passed.
+TXT and PDF uploads through the proxy extracted text and left no uploaded
+source file. A real Kokoro job completed, served a 206 byte range and an MP3
+download, and wrote its audio to the project bind mount; deleting the job
+removed that file. With a short test TTL, another job expired, playback
+returned 410, and its MP3 was removed. The Compose stack and Docker Desktop
+were stopped after testing. The target Intel N95 architecture is AMD64 and
+has not been tested.
+
+Listening-based voice quality review and testing on a physical phone over LAN
+also remain open. The in-app browser decoded audio and entered the playing
+state, but that check alone cannot assess how the speech sounds to a listener.
 
 The frontend's Docker build steps were also checked without a daemon: a clean
 offline `npm ci` and build produced the same CSS and JavaScript files as the
-normal project build. The Nginx container configuration, health checks,
-FFmpeg inside the backend container, and a real Linux speech job remain
-unverified. The target Intel N95 architecture is AMD64 and has not been tested.
+normal project build. The later container runtime checks above exercised
+those build inputs in Linux ARM64 images on Mac. N95 deployment and performance
+testing are the next phase.
 
 ## Checks
 
