@@ -427,10 +427,9 @@ TypeScript checking. Test temporary directories and outputs are ignored by Git.
 
 The product is named EdSpeech; the containing folder can retain any name.
 Model/data directories retain only `.gitkeep` placeholders in Git. Local
-`context.txt`, `phase1.1.txt`, `phase2.1.txt`, `phase3.1.txt`, `phase4.1.txt`, and
-`phase5.1.txt`, `phase6.1.txt`, `phase7.1.txt`, `phase8.1.txt`, and
-`phase9.1.txt`, `phase10.1.txt`, `phase11.1.txt`, and `phase12.1.txt` handoff notes are also ignored and must be transferred
-separately when another agent uses a different clone or worktree.
+`context.txt` and the numbered `phase*.1.txt` handoff notes are also ignored
+and must be transferred separately when another agent uses a different clone
+or worktree.
 
 ## Troubleshooting
 
