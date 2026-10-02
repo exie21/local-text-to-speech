@@ -364,8 +364,10 @@ backend temporary directory. A PDF-based job generated an MP3 at 1.25×
 generation speed; the browser decoded and started playback without a media
 error, then changed playback rate to 1.75× without a new job. A 2,340-character
 job completed four chunks and produced a 122.6-second MP3. The download
-endpoint returned a valid 3.968-second MP3 with attachment headers. After a
-backend restart, startup cleanup removed deliberately orphaned audio and
+endpoint returned a valid 3.968-second MP3 with attachment headers. A separate
+browser click on **Download MP3** triggered a download event and a successful
+HTTP 200 response for a real generated MP3. After a backend restart, startup
+cleanup removed deliberately orphaned audio and
 chunks while preserving completed jobs; a test MP3 later expired and was
 deleted. A phone-width layout check found no horizontal overflow at a 346
 CSS-pixel viewport. Compose configuration validates.
@@ -373,9 +375,9 @@ CSS-pixel viewport. Compose configuration validates.
 Both container images built on Docker Desktop for Mac (ARM64). Container
 startup and the Nginx proxy still need runtime verification: Docker Desktop
 stalled while starting both containers, then its engine failed to restart.
-Neither container reached a running state. Browser-clicked
-download, listening-based voice quality review, and testing on a physical
-phone over LAN also remain open. The in-app browser's playback state and
+Neither container reached a running state. Listening-based voice quality
+review and testing on a physical phone over LAN also remain open. The in-app
+browser's playback state and
 decoded audio were verified, but this check alone cannot assess how the speech
 sounds to a listener.
 
