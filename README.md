@@ -394,6 +394,29 @@ normal project build. The later container runtime checks above exercised
 those build inputs in Linux ARM64 images on Mac. N95 deployment and performance
 testing are the next phase.
 
+## N95 transfer preparation
+
+After committing the intended revision, create a source ZIP from tracked files:
+
+```sh
+mkdir -p .cache
+git archive --format=zip --output=.cache/edspeech-source.zip HEAD
+shasum -a 256 .cache/edspeech-source.zip
+```
+
+The ZIP is ignored by Git and excludes local `.env`, model files, generated
+audio, the SQLite database, dependencies, and caches. Transfer the ZIP and the
+two verified Kokoro model files separately to the N95. Extract into a private
+project directory, place the model files in `models/`, copy `.env.example` to
+`.env`, and start with `TTS_THREADS=2`. Verify the model checksums before
+starting Compose. The job system already limits active synthesis to one worker;
+`MAX_TTS_CONCURRENT_JOBS` from the original plan is not an implemented setting.
+
+Run `docker compose config --quiet` and `docker compose up --build -d --wait`
+on the N95, then test its local frontend at `http://127.0.0.1:5173` before
+making any external access changes. The Mac container checks do not establish
+N95 performance or Jellyfin impact; record those on the target.
+
 ## Checks
 
 ```sh
